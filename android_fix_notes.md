@@ -55,3 +55,84 @@ Con eso, Android va a cargar automáticamente la variante de `drawable-night` cu
 
 Si preferís mantener `onboarding_welcome_night` y `pizarra_tacita_night`, entonces tenés que hacer la selección manual en código (no recomendado frente a `drawable-night`).
 
+---
+
+# Fixes para errores de tipos en `AddStockMainForm.kt`
+
+Estos dos errores son de **nulabilidad** y de **tipo de colección**.
+
+## Error 1
+
+```text
+actual type is 'Function1<Proveedor, Unit>', but 'Function1<Proveedor?, Unit>' was expected
+```
+
+### Qué significa
+
+El callback que recibe tu componente acepta un `Proveedor?` (nullable), pero vos le estás pasando una lambda que espera `Proveedor` (non-null).
+
+### Arreglo recomendado
+
+Cambiá la lambda para aceptar nullable y manejar `null` dentro.
+
+```kotlin
+// Antes (falla)
+onProveedorSelected = { proveedor: Proveedor ->
+    viewModel.onProveedorSelected(proveedor)
+}
+
+// Después (ok)
+onProveedorSelected = { proveedor: Proveedor? ->
+    proveedor?.let { viewModel.onProveedorSelected(it) }
+}
+```
+
+Si querés permitir "sin proveedor", podés enviar un evento alternativo en el `else`.
+
+## Error 2
+
+```text
+actual type is 'Function1<List<Int>, Unit>', but 'Function1<Set<Int>, Unit>' was expected
+```
+
+### Qué significa
+
+Tu callback espera `Set<Int>` (sin duplicados), pero le pasás una lambda para `List<Int>`.
+
+### Arreglo recomendado
+
+Ajustá la firma a `Set<Int>` o convertí explícitamente.
+
+```kotlin
+// Antes (falla)
+onCategorySelectionChanged = { ids: List<Int> ->
+    viewModel.onCategorySelectionChanged(ids)
+}
+
+// Después (ok)
+onCategorySelectionChanged = { ids: Set<Int> ->
+    viewModel.onCategorySelectionChanged(ids.toList()) // si el VM aún usa List
+}
+```
+
+O mejor, alineá todo a `Set<Int>` de punta a punta si representa selección múltiple.
+
+## Ejemplo combinado (líneas aproximadas 211 y 247)
+
+```kotlin
+AddStockMainForm(
+    // ...
+    onProveedorSelected = { proveedor: Proveedor? ->
+        proveedor?.let(viewModel::onProveedorSelected)
+    },
+    onCategorySelectionChanged = { selectedIds: Set<Int> ->
+        viewModel.onCategorySelectionChanged(selectedIds)
+    }
+)
+```
+
+Si tu `viewModel.onCategorySelectionChanged` hoy recibe `List<Int>`, cambiá temporalmente a:
+
+```kotlin
+viewModel.onCategorySelectionChanged(selectedIds.toList())
+```
