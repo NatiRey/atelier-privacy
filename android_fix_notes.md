@@ -1,57 +1,43 @@
-# Ceramistic Android dark mode onboarding images
+# Ceramistic Kotlin type mismatch fixes
 
-Como agregaste las imágenes `onboarding_welcome_night` y `pizarra_tacita_night`, la forma correcta en Android es usar calificadores de recursos `-night` para que el sistema haga el cambio automático al entrar en modo oscuro.
+I couldn't directly edit `C:/Users/natir/AndroidStudioProjects/Ceramistic/...` from this container, so here is the exact patch to apply in `AddStockMainForm.kt`.
 
-## 1) Estructura de carpetas recomendada
+## 1) `Function1<Proveedor, Unit>` -> `Function1<Proveedor?, Unit>`
 
-Ubicá las imágenes así (mismo nombre base para light/dark):
-
-```text
-app/src/main/res/drawable/onboarding_welcome.png
-app/src/main/res/drawable/pizarra_tacita.png
-
-app/src/main/res/drawable-night/onboarding_welcome.png
-app/src/main/res/drawable-night/pizarra_tacita.png
-```
-
-> Importante: En `drawable-night` **no** uses `_night` en el nombre del archivo. El selector lo hace la carpeta, no el nombre.
-
-## 2) Referencias en las pantallas de bienvenida
-
-En XML o Compose, seguí usando solo el nombre base:
-
-- `onboarding_welcome`
-- `pizarra_tacita`
-
-### Si usás XML
-
-```xml
-android:src="@drawable/onboarding_welcome"
-```
-
-```xml
-android:src="@drawable/pizarra_tacita"
-```
-
-### Si usás Jetpack Compose
+At (around) line 211, your callback now expects a nullable provider. Update your lambda parameter to `Proveedor?` and handle null safely.
 
 ```kotlin
-Image(
-    painter = painterResource(R.drawable.onboarding_welcome),
-    contentDescription = null
-)
+onProveedorSelected = { proveedor: Proveedor? ->
+    proveedor?.let { selected ->
+        onProveedorSelected(selected)
+    }
+}
 ```
+
+If you pass directly into a ViewModel function, same pattern:
 
 ```kotlin
-Image(
-    painter = painterResource(R.drawable.pizarra_tacita),
-    contentDescription = null
-)
+onProveedorSelected = { proveedor: Proveedor? ->
+    proveedor?.let(viewModel::onProveedorSelected)
+}
 ```
 
-Con eso, Android va a cargar automáticamente la variante de `drawable-night` cuando el dispositivo esté en modo oscuro.
+## 2) `Function1<List<Int>, Unit>` -> `Function1<Set<Int>, Unit>`
 
-## 3) Si querés conservar los nombres que ya creaste
+At (around) line 247, the component now emits a `Set<Int>`. If your downstream function still expects `List<Int>`, convert it:
 
-Si preferís mantener `onboarding_welcome_night` y `pizarra_tacita_night`, entonces tenés que hacer la selección manual en código (no recomendado frente a `drawable-night`).
+```kotlin
+onSelectedWarehousesChange = { ids: Set<Int> ->
+    onSelectedWarehousesChange(ids.toList())
+}
+```
 
+Or with ViewModel:
+
+```kotlin
+onSelectedWarehousesChange = { ids: Set<Int> ->
+    viewModel.onSelectedWarehousesChange(ids.toList())
+}
+```
+
+If you can change the downstream signature, make it accept `Set<Int>` directly to avoid conversions.
